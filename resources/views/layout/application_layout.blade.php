@@ -163,8 +163,9 @@
                                     <a class="sub-nav-link" href="{{ url('/product-list') }}">Product
                                         List</a>
                                 </li>
-
-
+                                <li class="sub-nav-item">
+                                    <a class="sub-nav-link" href="{{ url('/edit-product') }}">Edit Product</a>
+                                </li>
                                 <li class="sub-nav-item">
                                     <a class="sub-nav-link" href="{{ url('/create-product') }}">Create</a>
                                 </li>
@@ -187,7 +188,7 @@
                                 </li>
 
                                 <li class="sub-nav-item">
-                                    <a class="sub-nav-link" href="{{ url('/category-create') }}">Create</a>
+                                    <a class="sub-nav-link" href="{{ url('/create-category') }}">Create</a>
                                 </li>
                             </ul>
                         </div>
