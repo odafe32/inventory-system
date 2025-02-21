@@ -13,14 +13,14 @@ return new class extends Migration
             $table->string('title');
             $table->string('thumbnail')->nullable();
             $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
-            $table->integer('stock')->default(0);
             $table->string('tag_id')->unique();
             $table->text('description')->nullable();
             $table->string('meta_title')->nullable();
             $table->string('meta_keywords')->nullable();
             $table->text('meta_description')->nullable();
             $table->timestamps();
-            $table->softDeletes(); // Add this if you want soft deletes
+            $table->softDeletes(); // Add this line for soft deletes
+          
         });
     }
 

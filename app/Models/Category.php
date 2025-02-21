@@ -13,7 +13,6 @@ class Category extends Model
         'title',
         'thumbnail',
         'created_by',
-        'stock',
         'tag_id',
         'description',
         'meta_title',

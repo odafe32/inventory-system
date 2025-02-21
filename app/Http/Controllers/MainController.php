@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Category; 
 
 class MainController extends Controller
@@ -39,7 +40,6 @@ public function showProduct(){
             'weight' => 'nullable|numeric',
             'gender' => 'required|in:Men,Women,Other',
             'description' => 'required|string',
-            'stock' => 'required|integer|min:0',
             'tags' => 'nullable|array',
             'size' => 'required|string',
             'price' => 'required|numeric|min:0',
@@ -89,17 +89,25 @@ public function EditProduct(){
 }
 
 //catogries
+public function showCategory()
+{
+    try {
+        // Fetch categories with their creators, paginated
+        $categories = Category::with('creator')
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
-  public function showCategory()
-    {
-        $categories = Category::with('creator')->paginate(10);
         return view('inventory.category.category', [
             'meta_title' => 'Categories - Larkon',
             'meta_desc' => 'Manage your product categories',
             'page_title' => 'Categories',
             'categories' => $categories
         ]);
+    } catch (\Exception $e) {
+        \Log::error('Error fetching categories: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Error loading categories. Please try again.');
     }
+}
 
     public function createCategory()
     {
@@ -126,7 +134,6 @@ public function storeCategory(Request $request)
             'title' => 'required|string|max:255',
             'thumbnail' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
             'created_by' => 'required|exists:users,id',
-            'stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
             'meta_title' => 'nullable|string|max:255',
             'meta_keywords' => 'nullable|string|max:255',
@@ -172,40 +179,47 @@ public function storeCategory(Request $request)
     }
 }
 
-    public function editCategory($id)
+      public function editCategory($id)
     {
-        $category = Category::findOrFail($id);
-        return view('inventory.category.edit', [
-            'meta_title' => 'Edit Category - Larkon',
-            'meta_desc' => 'Edit product category',
-            'page_title' => 'Edit Category',
-            'category' => $category
-        ]);
+        try {
+            $category = Category::with('creator')->findOrFail($id);
+            
+            return view('inventory.category.edit-category', [
+                'meta_title' => 'Edit Category - Larkon',
+                'meta_desc' => 'Edit product category',
+                'page_title' => 'Edit Category',
+                'category' => $category
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error loading category for edit: ' . $e->getMessage());
+            return redirect()->route('category')
+                ->with('error', 'Category not found.');
+        }
     }
 
     public function updateCategory(Request $request, $id)
     {
-        $category = Category::findOrFail($id);
-        
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'created_by' => 'required|exists:users,id',
-            'stock' => 'required|integer|min:0',
-            'description' => 'nullable|string',
-            'meta_title' => 'nullable|string|max:255',
-            'meta_keywords' => 'nullable|string|max:255',
-            'meta_description' => 'nullable|string'
-        ]);
-
         try {
-            // Handle thumbnail upload
+            $category = Category::findOrFail($id);
+            
+            $validated = $request->validate([
+                'title' => 'required|string|max:255',
+                'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'created_by' => 'required|exists:users,id',
+                'description' => 'nullable|string',
+                'meta_title' => 'nullable|string|max:255',
+                'meta_keywords' => 'nullable|string|max:255',
+                'meta_description' => 'nullable|string'
+            ]);
+
+            // Handle thumbnail upload if a new one is provided
             if ($request->hasFile('thumbnail')) {
                 // Delete old thumbnail
-                if ($category->thumbnail) {
+                if ($category->thumbnail && Storage::disk('public')->exists($category->thumbnail)) {
                     Storage::disk('public')->delete($category->thumbnail);
                 }
                 
+                // Store new thumbnail
                 $path = $request->file('thumbnail')->store('categories', 'public');
                 $validated['thumbnail'] = $path;
             }
@@ -217,39 +231,38 @@ public function storeCategory(Request $request)
                 ->with('success', 'Category updated successfully!');
 
         } catch (\Exception $e) {
-            // If thumbnail was uploaded but category update failed, remove the new file
-            if (isset($path)) {
-                Storage::disk('public')->delete($path);
-            }
-
+            \Log::error('Error updating category: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Failed to update category. Please try again.')
                 ->withInput();
         }
     }
 
-    public function deleteCategory($id)
+
+ public function deleteCategory($id)
     {
         try {
+            // Find the category
             $category = Category::findOrFail($id);
             
-            // Delete thumbnail
-            if ($category->thumbnail) {
+            // Delete the thumbnail file if it exists
+            if ($category->thumbnail && Storage::disk('public')->exists($category->thumbnail)) {
                 Storage::disk('public')->delete($category->thumbnail);
             }
             
+            // Delete the category from database
             $category->delete();
 
             return redirect()->route('category')
                 ->with('success', 'Category deleted successfully!');
 
         } catch (\Exception $e) {
+            \Log::error('Error deleting category: ' . $e->getMessage());
+            
             return redirect()->back()
                 ->with('error', 'Failed to delete category. Please try again.');
         }
     }
-
-
 
 
 //invoicesz

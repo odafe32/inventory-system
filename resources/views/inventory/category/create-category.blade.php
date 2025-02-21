@@ -29,10 +29,7 @@
                                         <p class="mb-1 mt-2">Created By:</p>
                                         <h5 class="mb-0" id="preview-creator">{{ Auth::user()->business_name }}</h5>
                                     </div>
-                                    <div class="col-lg-4 col-4">
-                                        <p class="mb-1 mt-2">Stock:</p>
-                                        <h5 class="mb-0" id="preview-stock">0</h5>
-                                    </div>
+
                                     <div class="col-lg-4 col-4">
                                         <p class="mb-1 mt-2">ID:</p>
                                         <h5 class="mb-0" id="preview-tag">{{ $generated_tag_id }}</h5>
@@ -84,16 +81,7 @@
                                     </div>
                                 </div>
 
-                                <div class="col-lg-6">
-                                    <div class="mb-3">
-                                        <label for="product-stock" class="form-label">Stock</label>
-                                        <input type="number" name="stock" id="product-stock" class="form-control"
-                                            placeholder="Quantity" value="{{ old('stock', 0) }}" required min="0">
-                                        @error('stock')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                </div>
+
 
                                 <div class="col-lg-6">
                                     <div class="mb-3">
@@ -193,10 +181,6 @@
 
             document.getElementById('category-title').addEventListener('input', function(e) {
                 document.getElementById('preview-title').textContent = e.target.value || 'Category Title';
-            });
-
-            document.getElementById('product-stock').addEventListener('input', function(e) {
-                document.getElementById('preview-stock').textContent = e.target.value || '0';
             });
         </script>
     @endpush

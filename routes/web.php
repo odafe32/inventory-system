@@ -37,10 +37,10 @@ Route::middleware(['auth'])->group(function () {
             //categories
              Route::get('/category', 'showCategory')->name('category');
              Route::get('/create-category', 'createCategory')->name('create-category');
-             Route::get('/edit-category', 'editCategory')->name('edit-category');
              Route::post('/categories', 'storeCategory')->name('categories.store');
-             Route::put('/categories/{id}', 'updateCategory')->name('categories.update');
              Route::delete('/categories/{id}', 'deleteCategory')->name('categories.delete');
+             Route::get('/edit-category/{id}', 'editCategory')->name('edit-category');
+             Route::put('/categories/{id}', 'updateCategory')->name('categories.update');
 
              //invoices
                Route::get('/invoices', 'showInvoices')->name('invoices');
