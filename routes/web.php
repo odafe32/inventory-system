@@ -31,12 +31,16 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/product-list', 'showProduct')->name('product-list');
             Route::get('/product-details', 'showProductDetails')->name('product-details');
             Route::get('/create-product', 'newProduct')->name('new-product');
+            Route::post('/products',  'storeProduct')->name('products.store');
             Route::get('/edit-product', 'editProduct')->name('edit-product');
 
             //categories
              Route::get('/category', 'showCategory')->name('category');
              Route::get('/create-category', 'createCategory')->name('create-category');
              Route::get('/edit-category', 'editCategory')->name('edit-category');
+             Route::post('/categories', 'storeCategory')->name('categories.store');
+             Route::put('/categories/{id}', 'updateCategory')->name('categories.update');
+             Route::delete('/categories/{id}', 'deleteCategory')->name('categories.delete');
 
              //invoices
                Route::get('/invoices', 'showInvoices')->name('invoices');
