@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Product;
 use App\Models\Category; 
 
 class MainController extends Controller
@@ -20,33 +21,93 @@ public function showDashboard(){
 }
 
 //products list
-public function showProduct(){
-    return view('inventory.product.product', [
-        'meta_title' => 'Products - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
-        'meta_image' => url('images/favicon.ico'),
-         'page_title' => 'Product', 
-    ]);
+public function showProduct()
+{
+    try {
+        // Get products with pagination
+        $products = Product::with('category')
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        return view('inventory.product.product', [
+            'meta_title' => 'Products - Larkon',
+            'meta_desc' => 'A Management system that helps businesses keep track of their products...',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Product',
+            'products' => $products
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error fetching products: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Error loading products. Please try again.');
+    }
+}
+
+public function deleteProduct($id)
+{
+    try {
+        $product = Product::findOrFail($id);
+        
+        // Delete the product image if it exists
+        if ($product->image && Storage::disk('public')->exists($product->image)) {
+            Storage::disk('public')->delete($product->image);
+        }
+        
+        // Delete the product
+        $product->delete();
+
+        return redirect()->route('product-list')
+            ->with('success', 'Product deleted successfully!');
+
+    } catch (\Exception $e) {
+        \Log::error('Error deleting product: ' . $e->getMessage());
+        
+        return redirect()->back()
+            ->with('error', 'Failed to delete product. Please try again.');
+    }
 }
 
 
-    public function storeProduct(Request $request)
-    {
+
+public function newProduct()
+{
+    $categories = Category::all();
+    $tagNumber = Product::generateTagNumber();
+    
+    return view('inventory.product.create-product', [
+        'meta_title' => 'Create Product - Larkon',
+        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
+        'meta_image' => url('images/favicon.ico'),
+        'page_title' => 'Create Product',
+        'categories' => $categories,
+        'generated_tag' => $tagNumber
+    ]);
+}
+
+public function storeProduct(Request $request)
+{
+    try {
         $validated = $request->validate([
-            'tag_number' => 'required|unique:products',
             'name' => 'required|string|max:255',
-            'category' => 'required|string',
+            'category_id' => 'required|exists:categories,id', // Add this validation
             'brand' => 'required|string',
-            'weight' => 'nullable|numeric',
-            'gender' => 'required|in:Men,Women,Other',
+            'weight' => 'nullable|numeric|min:0',
+            'gender' => 'required|in:Men,Women,Unisex',
             'description' => 'required|string',
-            'tags' => 'nullable|array',
-            'size' => 'required|string',
+            'sizes' => 'required|array|min:1',
+            'sizes.*' => 'string|in:XS,S,M,L,XL,XXL',
+            'stock' => 'required|integer|min:0',
             'price' => 'required|numeric|min:0',
             'discount' => 'nullable|numeric|min:0|max:100',
             'tax' => 'nullable|numeric|min:0',
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
+
+        // Generate tag number
+        $validated['tag_number'] = Product::generateTagNumber();
+
+        // Convert sizes array to string
+        $validated['size'] = implode(',', $request->sizes);
+        unset($validated['sizes']);
 
         // Handle image upload
         if ($request->hasFile('image')) {
@@ -54,40 +115,120 @@ public function showProduct(){
             $validated['image'] = $imagePath;
         }
 
-        // Create product
+        // Create product with category
         $product = Product::create($validated);
 
-        return redirect()->route('products.index')
-            ->with('success', 'Product created successfully!');
+        return response()->json([
+            'success' => true,
+            'message' => 'Product created successfully!',
+            'redirect' => route('product-list')
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error creating product: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to create product. ' . $e->getMessage()
+        ], 422);
     }
-
-public function showProductDetails(){
-    return view('inventory.product.product-details', [
-        'meta_title' => 'Products Details - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
-        'meta_image' => url('images/favicon.ico'),
-          'page_title' => 'Product Details', 
-    ]);
+}
+public function editProduct($id)
+{
+    try {
+        $product = Product::with('category')->findOrFail($id);
+        $categories = Category::all();
+        
+        return view('inventory.product.edit-product', [
+            'meta_title' => 'Edit Product - Larkon',
+            'meta_desc' => 'Edit product details...',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Edit Product',
+            'product' => $product,
+            'categories' => $categories
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error fetching product for edit: ' . $e->getMessage());
+        return redirect()->route('product-list')
+            ->with('error', 'Product not found.');
+    }
 }
 
-public function newProduct(){
-    return view('inventory.product.create-product', [
-        'meta_title' => 'Create Product - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
-        'meta_image' => url('images/favicon.ico'),
-          'page_title' => 'Create Product', 
-    ]);
+public function updateProduct(Request $request, $id)
+{
+    try {
+        $product = Product::findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category_id' => 'required|exists:categories,id',
+            'brand' => 'required|string',
+            'weight' => 'nullable|numeric|min:0',
+            'gender' => 'required|in:Men,Women,Unisex',
+            'description' => 'required|string',
+            'sizes' => 'required|array|min:1',
+            'sizes.*' => 'string|in:XS,S,M,L,XL,XXL',
+            'stock' => 'required|integer|min:0',
+            'price' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'tax' => 'nullable|numeric|min:0',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+        ]);
+
+        // Convert sizes array to string
+        $validated['size'] = implode(',', $request->sizes);
+        unset($validated['sizes']);
+
+        // Handle image upload if new image is provided
+        if ($request->hasFile('image')) {
+            // Delete old image
+            if ($product->image && Storage::disk('public')->exists($product->image)) {
+                Storage::disk('public')->delete($product->image);
+            }
+            
+            // Store new image
+            $imagePath = $request->file('image')->store('products', 'public');
+            $validated['image'] = $imagePath;
+        }
+
+        // Update product
+        $product->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product updated successfully!',
+            'redirect' => route('product-list')
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error updating product: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to update product. ' . $e->getMessage()
+        ], 422);
+    }
 }
 
-public function EditProduct(){
-    return view('inventory.product.edit-product', [
-        'meta_title' => 'Edit Product - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
-        'meta_image' => url('images/favicon.ico'),
-          'page_title' => 'Edit Product', 
-    ]);
+//product details
+public function showProductDetails($id)
+{
+    try {
+        $product = Product::with('category')->findOrFail($id);
+        
+        return view('inventory.product.product-details', [
+            'meta_title' => 'Product Details - Larkon',
+            'meta_desc' => 'A Management system that helps businesses keep track of their products...',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Product Details',
+            'product' => $product
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error fetching product details: ' . $e->getMessage());
+        return redirect()->route('product-list')
+            ->with('error', 'Product not found.');
+    }
 }
-
 //catogries
 public function showCategory()
 {

@@ -13,6 +13,10 @@
             </div>
         @endif
 
+        <div id="success-alert" class="alert alert-success alert-dismissible fade" role="alert" style="display: none;">
+            <span id="success-message"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
         <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" id="productForm">
             @csrf
             <div class="row">
@@ -28,7 +32,7 @@
                                 <h5 class="text-dark fw-medium mt-3">Price:</h5>
                                 <h4 class="fw-semibold text-dark mt-2 d-flex align-items-center gap-2">
                                     <span id="preview-original-price"
-                                        class="text-muted text-decoration-line-through">$0.00</span>
+                                        class="text-muted text-decoration-line-through">NGN0.00</span>
                                     <span id="preview-final-price">$0.00</span>
                                     <small id="preview-discount" class="text-muted">(0% Off)</small>
                                 </h4>
@@ -96,17 +100,16 @@
                                 <div class="col-lg-6">
                                     <div class="mb-3">
                                         <label for="product-categories" class="form-label">Product Categories</label>
-                                        <select class="form-control" name="category" id="product-categories" required>
+                                        <select class="form-control" name="category_id" id="product-categories" required>
                                             <option value="">Choose a category</option>
-                                            <option value="Clothing" {{ old('category') == 'Clothing' ? 'selected' : '' }}>
-                                                Clothing</option>
-                                            <option value="Accessories"
-                                                {{ old('category') == 'Accessories' ? 'selected' : '' }}>Accessories
-                                            </option>
-                                            <option value="Footwear" {{ old('category') == 'Footwear' ? 'selected' : '' }}>
-                                                Footwear</option>
+                                            @foreach ($categories as $category)
+                                                <option value="{{ $category->id }}"
+                                                    {{ old('category_id') == $category->id ? 'selected' : '' }}>
+                                                    {{ $category->title }}
+                                                </option>
+                                            @endforeach
                                         </select>
-                                        @error('category')
+                                        @error('category_id')
                                             <div class="text-danger mt-1">{{ $message }}</div>
                                         @enderror
                                     </div>
@@ -193,11 +196,9 @@
                                 <div class="col-lg-4">
                                     <div class="mb-3">
                                         <label for="product-id" class="form-label">Tag Number</label>
-                                        <input type="text" name="tag_number" id="product-id" class="form-control"
-                                            placeholder="#******" value="{{ old('tag_number') }}" required>
-                                        @error('tag_number')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
+                                        <input type="text" id="product-id" class="form-control"
+                                            value="{{ $generated_tag }}" readonly disabled>
+                                        <small class="text-muted">Auto-generated product tag</small>
                                     </div>
                                 </div>
                                 <div class="col-lg-4">
@@ -210,25 +211,7 @@
                                         @enderror
                                     </div>
                                 </div>
-                                <div class="col-lg-4">
-                                    <div class="mb-3">
-                                        <label for="product-tags" class="form-label">Tags</label>
-                                        <select class="form-control" name="tags[]" id="product-tags" multiple>
-                                            <option value="New"
-                                                {{ is_array(old('tags')) && in_array('New', old('tags')) ? 'selected' : '' }}>
-                                                New</option>
-                                            <option value="Featured"
-                                                {{ is_array(old('tags')) && in_array('Featured', old('tags')) ? 'selected' : '' }}>
-                                                Featured</option>
-                                            <option value="Sale"
-                                                {{ is_array(old('tags')) && in_array('Sale', old('tags')) ? 'selected' : '' }}>
-                                                Sale</option>
-                                        </select>
-                                        @error('tags')
-                                            <div class="text-danger mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                </div>
+
                             </div>
                         </div>
                     </div>
@@ -244,7 +227,7 @@
                                     <div class="mb-3">
                                         <label for="product-price" class="form-label">Price</label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="bx bx-dollar"></i></span>
+                                            <span class="input-group-text">₦</span>
                                             <input type="number" name="price" id="product-price" class="form-control"
                                                 placeholder="0.00" value="{{ old('price') }}" required step="0.01"
                                                 min="0">
@@ -332,8 +315,9 @@
 
             document.getElementById('product-categories').addEventListener('change', function(e) {
                 const productName = document.getElementById('product-name').value;
+                const category = document.querySelector('#product-categories option:checked').text;
                 previewName.innerHTML =
-                    `${productName} <span class="fs-14 text-muted ms-1">(${e.target.value})</span>`;
+                    `${productName} <span class="fs-14 text-muted ms-1">(${category})</span>`;
             });
 
             // Price and discount calculations
@@ -414,6 +398,13 @@
                 }
 
                 if (isValid) {
+                    // Show loading state
+                    const submitButton = form.querySelector('button[type="submit"]');
+                    const originalText = submitButton.innerHTML;
+                    submitButton.innerHTML =
+                        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...';
+                    submitButton.disabled = true;
+
                     // Submit the form
                     const formData = new FormData(form);
                     if (myDropzone.files[0]) {
@@ -430,16 +421,30 @@
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                window.location.href = data.redirect;
+                                // Show success message
+                                const successAlert = document.getElementById('success-alert');
+                                const successMessage = document.getElementById('success-message');
+                                successMessage.textContent = data.message;
+                                successAlert.style.display = 'block';
+                                successAlert.classList.add('show');
+
+                                // Redirect after a short delay
+                                setTimeout(() => {
+                                    window.location.href = data.redirect;
+                                }, 1500);
                             } else {
                                 throw new Error(data.message);
                             }
                         })
                         .catch(error => {
                             alert('Error: ' + error.message);
+                            // Reset button state
+                            submitButton.innerHTML = originalText;
+                            submitButton.disabled = false;
                         });
                 }
             });
+
 
             // Initialize the preview
             updatePricePreview();
@@ -476,6 +481,19 @@
 
         .size-button {
             min-width: 40px;
+        }
+
+        /* Add this to your existing styles */
+        .alert {
+            margin-bottom: 20px;
+        }
+
+        .fade {
+            transition: opacity 0.15s linear;
+        }
+
+        .fade.show {
+            opacity: 1;
         }
     </style>
 

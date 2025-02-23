@@ -19,8 +19,7 @@ return new class extends Migration
             $table->string('meta_keywords')->nullable();
             $table->text('meta_description')->nullable();
             $table->timestamps();
-            $table->softDeletes(); // Add this line for soft deletes
-          
+            $table->softDeletes();
         });
     }
 

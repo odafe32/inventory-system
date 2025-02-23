@@ -243,8 +243,11 @@
                 <!-- Keep your existing sidebar image section -->
                 <div class="col-xxl-5 d-none d-xxl-flex">
                     <div class="card h-100 mb-0 overflow-hidden">
-                        <div class="d-flex flex-column h-100">
-                            <img src="{{ url('assets/images/small/img-10.jpg') }}" alt="" class="w-100 h-100">
+                        <div class="d-flex flex-column h-100 gap-2">
+                            <img src="{{ url('imgg.jpeg') }}" alt="" style="background-size:contain;">
+                            <img src="{{ url('clohes.webp') }}" alt="" style="background-size:contain;">
+                            <img src="{{ url('cap.webp') }}" alt="" style="background-size:contain;">
+                            <img src="{{ url('shoes.jpg') }}" alt="" style="background-size:contain;">
                         </div>
                     </div>
                 </div>

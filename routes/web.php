@@ -29,31 +29,34 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/dashboard', 'showDashboard')->name('dashboard');
             //products
             Route::get('/product-list', 'showProduct')->name('product-list');
-            Route::get('/product-details', 'showProductDetails')->name('product-details');
+            Route::get('/product-details/{id}', 'showProductDetails')->name('product-details');
             Route::get('/create-product', 'newProduct')->name('new-product');
             Route::post('/products',  'storeProduct')->name('products.store');
-            Route::get('/edit-product', 'editProduct')->name('edit-product');
+            Route::get('/edit-product/{id}', 'editProduct')->name('edit-product'); // Changed this line
+            Route::put('/products/{id}',  'updateProduct')->name('products.update');
+            Route::delete('/products/{id}', 'deleteProduct')->name('products.delete');
+            
 
             //categories
-             Route::get('/category', 'showCategory')->name('category');
-             Route::get('/create-category', 'createCategory')->name('create-category');
-             Route::post('/categories', 'storeCategory')->name('categories.store');
-             Route::delete('/categories/{id}', 'deleteCategory')->name('categories.delete');
-             Route::get('/edit-category/{id}', 'editCategory')->name('edit-category');
-             Route::put('/categories/{id}', 'updateCategory')->name('categories.update');
+            Route::get('/category', 'showCategory')->name('category');
+            Route::get('/create-category', 'createCategory')->name('create-category');
+            Route::post('/categories', 'storeCategory')->name('categories.store');
+            Route::delete('/categories/{id}', 'deleteCategory')->name('categories.delete');
+            Route::get('/edit-category/{id}', 'editCategory')->name('edit-category');
+            Route::put('/categories/{id}', 'updateCategory')->name('categories.update');
 
-             //invoices
-               Route::get('/invoices', 'showInvoices')->name('invoices');
-               Route::get('/create-invoices', 'CreateInvoices')->name('create-invoices');
-               Route::get('/edit-invoices', 'EditInvoices')->name('edit-invoices');
-               Route::get('/invoices-details', 'invoicesDetails')->name('invoices-details');
+            //invoices
+            Route::get('/invoices', 'showInvoices')->name('invoices');
+            Route::get('/create-invoices', 'CreateInvoices')->name('create-invoices');
+            Route::get('/edit-invoices', 'EditInvoices')->name('edit-invoices');
+            Route::get('/invoices-details', 'invoicesDetails')->name('invoices-details');
         
-               //orders
-                  Route::get('/orders', 'showOrders')->name('orders');
-                  Route::get('/orders-details', 'showOrderDetails')->name('orders-details');
+            //orders
+            Route::get('/orders', 'showOrders')->name('orders');
+            Route::get('/orders-details', 'showOrderDetails')->name('orders-details');
              
-                  //profile
-             Route::get('/profile', 'showProfile')->name('profile');
+            //profile
+            Route::get('/profile', 'showProfile')->name('profile');
         });
     });
 });
