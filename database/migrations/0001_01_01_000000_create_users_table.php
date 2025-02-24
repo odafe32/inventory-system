@@ -20,6 +20,7 @@ return new class extends Migration
         $table->string('business_name');
         $table->string('business_type');
         $table->text('business_address');
+        $table->string('profile_image')->nullable();
         $table->string('username')->unique();
         $table->string('password');
         $table->timestamp('email_verified_at')->nullable();

@@ -51,16 +51,20 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/edit-invoices', 'EditInvoices')->name('edit-invoices');
             Route::get('/invoices-details', 'invoicesDetails')->name('invoices-details');
         
-            //orders
-            Route::get('/orders', 'showOrders')->name('orders');
-            Route::get('/orders-details', 'showOrderDetails')->name('orders-details');
-            Route::post('/orders', 'storeOrder')->name('orders.store');
+           //orders
+            Route::get('/orders',  'showOrders')->name('orders-list');
             Route::get('/create-order', 'CreateOrders')->name('orders');
-            Route::delete('/orders/{id}', 'deleteOrder')->name('orders.delete');
+            Route::post('/orders', 'storeOrder')->name('orders.store');
+            Route::get('/orders-details/{id}', 'showOrderDetails')->name('orders-details');
             Route::get('/edit-order/{id}', 'editOrder')->name('edit-order');
+            Route::put('/orders/{id}', 'updateOrder')->name('orders.update');
+            Route::delete('/orders/{id}', 'deleteOrder')->name('orders.delete');
              
             //profile
+            // Add these routes to the existing authenticated routes section
             Route::get('/profile', 'showProfile')->name('profile');
+            Route::put('/profile', 'updateProfile')->name('profile.update');
+            Route::post('/change-password', 'changePassword')->name('password.change');
         });
     });
 });

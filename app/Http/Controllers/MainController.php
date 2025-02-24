@@ -9,9 +9,15 @@ use App\Models\Product;
 use App\Models\Category; 
 use App\Models\Order; 
 use App\Models\OrderItem; 
+use Illuminate\Pagination\Paginator;
 
 class MainController extends Controller
 {
+    public function boot()
+{
+    Paginator::defaultView('vendor.pagination.custom');
+    Paginator::defaultSimpleView('vendor.pagination.custom');
+}
     //
 public function showDashboard(){
     return view('inventory.dashboard', [
@@ -439,11 +445,10 @@ public function invoicesDetails(){
 
 public function showOrders()
 {
-    // Get orders with relationships, newest first
+  // Get orders with relationships, newest first
     $orders = Order::with(['orderItems', 'createdBy'])
         ->orderBy('created_at', 'desc')
-        ->paginate(10);
-
+        ->paginate(10); // T
     // Format orders for display
     $orders->getCollection()->transform(function ($order) {
         // Get total items count
@@ -570,7 +575,7 @@ public function storeOrder(Request $request)
                 'subtotal' => $subtotal,
                 'tax' => $tax,
                 'total' => $total,
-                'created_by' => auth()->id()
+                'created_by' => auth()->id() // Add the user who created the order
             ]);
 
             // Create order items
@@ -585,32 +590,20 @@ public function storeOrder(Request $request)
                     'price' => $product->price,
                     'total' => $product->price * $request->quantities[$index]
                 ]);
-
-                // Uncomment if you want to update product stock
-                // $product->decrement('stock', $request->quantities[$index]);
             }
 
             \DB::commit();
 
-            // Send order confirmation email
-            try {
-                // Mail::to($request->email)->send(new OrderConfirmation($order));
-            } catch (\Exception $e) {
-                \Log::error('Failed to send order confirmation email: ' . $e->getMessage());
-                // Don't throw the error since order was created successfully
-            }
-
             // Return response based on request type
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Order created successfully! Order ID: ' . $order->order_id,
-                    'order' => $order,
-                    'redirect' => route('orders')
+                    'redirect' => route('orders-list')  // Changed from 'ord' to 'orders-list'
                 ]);
             }
 
-            return redirect()->route('orders')
+            return redirect()->route('orders-list')  // Changed from 'ord' to 'orders-list'
                 ->with('success', 'Order created successfully! Order ID: ' . $order->order_id);
 
         } catch (\Exception $e) {
@@ -619,50 +612,311 @@ public function storeOrder(Request $request)
         }
 
     } catch (\Illuminate\Validation\ValidationException $e) {
-        if ($request->ajax()) {
+        if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors()
             ], 422);
         }
-        return back()->withErrors($e->errors())->withInput();
-
+        
+        return redirect()->back()->withErrors($e->errors())->withInput();
+        
     } catch (\Exception $e) {
         \Log::error('Error creating order: ' . $e->getMessage());
         
-        if ($request->ajax()) {
+        if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create order. Please try again.',
-                'error' => $e->getMessage()
+                'message' => 'Failed to create order. ' . $e->getMessage()
             ], 500);
         }
-
-        return back()
+        
+        return redirect()->back()
             ->with('error', 'Failed to create order. Please try again.')
             ->withInput();
     }
 }
 
 
-public function showOrderDetails(){
-    return view('inventory.orders.orders-details ', [
-        'meta_title' => ' Orders Details - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
+public function showOrderDetails($id)
+{
+    try {
+        // Get order with related items and creator
+        $order = Order::with(['orderItems.product', 'createdBy'])
+            ->findOrFail($id);
+
+        // Format the data for display
+        $order->formatted_total = '₦' . number_format($order->total, 2);
+        $order->formatted_subtotal = '₦' . number_format($order->subtotal, 2);
+        $order->formatted_tax = '₦' . number_format($order->tax, 2);
+        $order->formatted_date = $order->created_at->format('M d, Y');
+        $order->payment_status_class = $this->getPaymentStatusClass($order->payment_status);
+        $order->order_status_class = $this->getOrderStatusClass($order->order_status);
+
+        return view('inventory.orders.orders-details', [
+            'meta_title' => 'Order Details - Larkon',
+            'meta_desc' => 'A Management system that helps businesses keep track of their products...',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Order Details',
+            'order' => $order
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error fetching order details: ' . $e->getMessage());
+        return redirect()->route('ord')
+            ->with('error', 'Order not found.');
+    }
+}
+
+
+public function editOrder($id)
+{
+    try {
+        $order = Order::with(['orderItems.product'])->findOrFail($id);
+        $products = Product::all(); // Get all products for the dropdown
+
+        return view('inventory.orders.edit-order', [
+            'meta_title' => 'Edit Order - Larkon',
+            'meta_desc' => 'Edit order details and items',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Edit Order',
+            'order' => $order,
+            'products' => $products
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error loading order for edit: ' . $e->getMessage());
+        return redirect()->route('orders-list')
+            ->with('error', 'Order not found.');
+    }
+}
+// In MainController.php
+
+public function updateOrder(Request $request, $id)
+{
+    try {
+        // Find the order or fail
+        $order = Order::findOrFail($id);
+        
+        // Validate the request
+        $validated = $request->validate([
+            'priority' => 'required|in:Normal,High',
+            'payment_status' => 'required|in:Paid,Unpaid,Refund',
+            'order_status' => 'required|in:Draft,Packaging,Shipping,Completed,Canceled',
+            'customer_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:20',
+            'address' => 'required|string',
+            'products' => 'required|array|min:1',
+            'products.*' => 'exists:products,id',
+            'sizes' => 'required|array|min:1',
+            'sizes.*' => 'required|string',
+            'quantities' => 'required|array|min:1',
+            'quantities.*' => 'required|integer|min:1'
+        ]);
+
+        \DB::beginTransaction();
+
+        try {
+            // Calculate totals
+            $subtotal = 0;
+            foreach ($request->products as $index => $productId) {
+                $product = Product::findOrFail($productId);
+                $quantity = $request->quantities[$index];
+                $subtotal += $product->price * $quantity;
+            }
+
+            $tax = $subtotal * 0.075; // 7.5% tax
+            $total = $subtotal + $tax;
+
+            // Update order
+            $order->update([
+                'customer_name' => $request->customer_name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'priority' => $request->priority,
+                'payment_status' => $request->payment_status,
+                'order_status' => $request->order_status,
+                'subtotal' => $subtotal,
+                'tax' => $tax,
+                'total' => $total
+            ]);
+
+            // Delete existing order items
+            $order->orderItems()->delete();
+
+            // Create new order items
+            foreach ($request->products as $index => $productId) {
+                $product = Product::findOrFail($productId);
+                
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $productId,
+                    'size' => $request->sizes[$index],
+                    'quantity' => $request->quantities[$index],
+                    'price' => $product->price,
+                    'total' => $product->price * $request->quantities[$index]
+                ]);
+            }
+
+            \DB::commit();
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Order updated successfully!',
+                    'redirect' => route('orders-details', $order->id)
+                ]);
+            }
+
+            return redirect()->route('orders-details', $order->id)
+                ->with('success', 'Order updated successfully!');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            throw $e;
+        }
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
+        }
+        
+        return redirect()->back()->withErrors($e->errors())->withInput();
+        
+    } catch (\Exception $e) {
+        \Log::error('Error updating order: ' . $e->getMessage());
+        
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update order: ' . $e->getMessage()
+            ], 500);
+        }
+        
+        return redirect()->back()
+            ->with('error', 'Failed to update order. Please try again.')
+            ->withInput();
+    }
+}
+public function deleteOrder($id)
+{
+    try {
+        $order = Order::findOrFail($id);
+        
+        \DB::beginTransaction();
+        
+        // Delete order items first
+        $order->orderItems()->delete();
+        
+        // Delete the order
+        $order->delete();
+        
+        \DB::commit();
+        
+        return redirect()->route('orders-list')
+            ->with('success', 'Order deleted successfully!');
+                
+    } catch (\Exception $e) {
+        \DB::rollBack();
+        \Log::error('Error deleting order: ' . $e->getMessage());
+        
+        return redirect()->back()
+            ->with('error', 'Failed to delete order. Please try again.');
+    }
+}
+//profile
+
+public function showProfile()
+{
+    $user = Auth::user();
+    
+    return view('inventory.profile', [
+        'meta_title' => 'Profile - Larkon',
+        'meta_desc' => 'Manage your profile and business information',
         'meta_image' => url('images/favicon.ico'),
-         'page_title' => 'Orders Detail', 
+        'page_title' => 'Profile',
+        'user' => $user
     ]);
 }
 
-//profile
+public function updateProfile(Request $request)
+{
+    try {
+        $user = Auth::user();
+        
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'business_name' => 'required|string|max:255',
+            'business_type' => 'required|string|max:255',
+            'business_address' => 'required|string',
+            'username' => 'required|string|max:255|unique:users,username,'.$user->id,
+            'email' => 'required|email|max:255|unique:users,email,'.$user->id,
+            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+        ]);
+        
+        // Handle profile image upload if provided
+        if ($request->hasFile('profile_image')) {
+            // Delete old image if exists
+            if ($user->profile_image && Storage::disk('public')->exists($user->profile_image)) {
+                Storage::disk('public')->delete($user->profile_image);
+            }
+            
+            $imagePath = $request->file('profile_image')->store('profiles', 'public');
+            $validated['profile_image'] = $imagePath;
+        }
+        
+        // Update user
+        $user->update($validated);
+        
+        return redirect()->route('profile')
+            ->with('success', 'Profile updated successfully!');
+            
+    } catch (\Exception $e) {
+        \Log::error('Error updating profile: ' . $e->getMessage());
+        
+        return redirect()->back()
+            ->with('error', 'Failed to update profile. Please try again.')
+            ->withInput();
+    }
+}
 
-public function showProfile(){
-    return view('inventory.profile ', [
-        'meta_title' => ' Profile - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
-        'meta_image' => url('images/favicon.ico'),
-         'page_title' => 'Profile ', 
-    ]);
+public function changePassword(Request $request)
+{
+    try {
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+        
+        $user = Auth::user();
+        
+        // Check if current password is correct
+        if (!Hash::check($request->current_password, $user->password)) {
+            return redirect()->back()
+                ->with('error', 'Current password is incorrect.')
+                ->withInput();
+        }
+        
+        // Update password
+        $user->password = Hash::make($request->password);
+        $user->save();
+        
+        return redirect()->route('profile')
+            ->with('success', 'Password changed successfully!');
+            
+    } catch (\Exception $e) {
+        \Log::error('Error changing password: ' . $e->getMessage());
+        
+        return redirect()->back()
+            ->with('error', 'Failed to change password. Please try again.');
+    }
 }
 }

@@ -13,14 +13,14 @@ class DatabaseSeeder extends Seeder
     {
         // Create test user without using factory defaults
         $user = User::create([
-            'first_name' => 'Test',
-            'last_name' => 'User',
+            'first_name' => 'Joseph ',
+            'last_name' => 'Sule Godfrey',
             'email' => 'test@example.com',
             'phone' => '1234567890',
             'business_name' => 'Fashion Store',
             'business_type' => 'Retail',
             'business_address' => '123 Fashion Street',
-            'username' => 'testuser',
+            'username' => 'odafe32',
             'password' => bcrypt('password'),
             'email_verified_at' => now(),
             'remember_token' => Str::random(10),

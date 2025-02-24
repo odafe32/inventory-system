@@ -83,8 +83,14 @@
                             <a type="button" class="topbar-button" id="page-header-user-dropdown"
                                 data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <span class="d-flex align-items-center">
-                                    <img class="rounded-circle" width="32"
-                                        src="{{ url('assets/images/users/avatar-1.jpg') }}" alt="avatar-3">
+                                    @if (Auth::user()->profile_image)
+                                        <img src="{{ asset('storage/' . Auth::user()->profile_image) }}" alt="Profile"
+                                            class="rounded-circle" width="32" id="profile-image-preview">
+                                    @else
+                                        <img src="{{ asset('images.png') }}" alt="Profile" class="rounded-circle"
+                                            width="32" id="profile-image-preview">
+                                    @endif
+
                                 </span>
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">

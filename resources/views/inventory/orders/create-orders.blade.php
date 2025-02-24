@@ -200,9 +200,8 @@
                                                             $sizesJson = json_encode($sizes);
                                                         @endphp
                                                         <option value="{{ $product->id }}"
-                                                            data-price="{{ number_format($product->price, 2) }}"
-                                                            data-sizes='{{ $product->size }}'
-                                                            data-debug-sizes="{{ $sizesJson }}">
+                                                            data-price="{{ $product->price }}"
+                                                            data-sizes="{{ $product->size }}">
                                                             {{ $product->name }}
                                                         </option>
                                                     @endforeach
@@ -289,26 +288,15 @@
                         const selectedOption = this.options[this.selectedIndex];
                         console.log('Selected product:', selectedOption.text);
                         console.log('Raw sizes data:', selectedOption.dataset.sizes);
+                        console.log('Product price:', selectedOption.dataset.price);
 
                         if (this.value) {
-                            // Parse sizes - handle both string and JSON formats
+                            // Parse sizes from the data attribute
                             let sizes = [];
-                            try {
-                                // Try parsing as JSON first
-                                const sizesData = selectedOption.dataset.sizes;
-                                if (sizesData.startsWith('[')) {
-                                    sizes = JSON.parse(sizesData);
-                                } else {
-                                    // If not JSON, split by comma
-                                    sizes = sizesData.split(',').map(size => size.trim()).filter(
-                                        Boolean);
-                                }
-                            } catch (e) {
-                                console.error('Error parsing sizes:', e);
+                            if (selectedOption.dataset.sizes) {
                                 sizes = selectedOption.dataset.sizes.split(',').map(size => size
                                     .trim()).filter(Boolean);
                             }
-
                             console.log('Parsed sizes:', sizes);
 
                             // Update size dropdown
@@ -322,6 +310,7 @@
 
                             // Update price
                             const price = parseFloat(selectedOption.dataset.price) || 0;
+                            console.log('Parsed price:', price);
                             row.querySelector('.price').textContent = `₦${price.toFixed(2)}`;
                         } else {
                             // Reset size select if no product selected
@@ -351,11 +340,22 @@
 
             // Function to update a single row's total
             function updateRowTotal(row) {
-                const price = parseFloat(row.querySelector('.price').textContent.replace('₦', '')) || 0;
+                // Get the price from the selected product option
+                const productSelect = row.querySelector('.product-select');
+                const selectedOption = productSelect.options[productSelect.selectedIndex];
+                let price = 0;
+
+                if (productSelect.value) {
+                    price = parseFloat(selectedOption.dataset.price) || 0;
+                    // Format and display the price
+                    row.querySelector('.price').textContent = `₦${price.toFixed(2)}`;
+                }
+
                 const quantity = parseInt(row.querySelector('.quantity').value) || 0;
                 const total = price * quantity;
                 row.querySelector('.total').textContent = `₦${total.toFixed(2)}`;
             }
+
 
             // Function to update all totals
             function updateTotals() {

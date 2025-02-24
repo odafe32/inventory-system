@@ -19,17 +19,7 @@
                             <a href="{{ route('orders') }}" class="btn btn-primary btn-sm">
                                 <i class="bx bx-plus"></i> Create Order
                             </a>
-                            <div class="dropdown">
-                                <a href="#" class="dropdown-toggle btn btn-sm btn-outline-light rounded"
-                                    data-bs-toggle="dropdown" aria-expanded="false">
-                                    This Month
-                                </a>
-                                <div class="dropdown-menu dropdown-menu-end">
-                                    <a href="#!" class="dropdown-item">Download</a>
-                                    <a href="#!" class="dropdown-item">Export</a>
-                                    <a href="#!" class="dropdown-item">Import</a>
-                                </div>
-                            </div>
+
                         </div>
                     </div>
                     <div class="card-body p-0">
@@ -54,9 +44,9 @@
                                         <tr>
                                             <td>{{ $order->order_id }}</td>
                                             <td>{{ $order->formatted_date }}</td>
-                                            <td>
-                                                <a href="#!"
-                                                    class="link-primary fw-medium">{{ $order->customer_name }}</a>
+                                            <td class="text-primary">
+
+                                                {{ $order->customer_name }}
                                             </td>
                                             <td>{{ $order->priority }}</td>
                                             <td>{{ $order->formatted_total }}</td>
@@ -66,7 +56,7 @@
                                                 </span>
                                             </td>
                                             <td>{{ $order->total_items }}</td>
-                                            <td>{{ $order->tax~ ?? '-' }}</td>
+                                            <td>₦{{ $order->tax ?? '-' }}</td>
                                             <td>
                                                 <span class="badge {{ $order->order_status_class }} px-2 py-1 fs-13">
                                                     {{ $order->order_status }}
@@ -84,11 +74,16 @@
                                                         <iconify-icon icon="solar:pen-2-broken"
                                                             class="align-middle fs-18"></iconify-icon>
                                                     </a>
-                                                    <button type="button" class="btn btn-soft-danger btn-sm delete-order"
-                                                        data-id="{{ $order->id }}">
-                                                        <iconify-icon icon="solar:trash-bin-minimalistic-2-broken"
-                                                            class="align-middle fs-18"></iconify-icon>
-                                                    </button>
+                                                    <form action="{{ route('orders.delete', $order->id) }}" method="POST"
+                                                        class="d-inline"
+                                                        onsubmit="return confirm('Are you sure you want to delete order {{ $order->order_id }}?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-soft-danger btn-sm">
+                                                            <iconify-icon icon="solar:trash-bin-minimalistic-2-broken"
+                                                                class="align-middle fs-18"></iconify-icon>
+                                                        </button>
+                                                    </form>
                                                 </div>
                                             </td>
                                         </tr>
@@ -102,7 +97,7 @@
                         </div>
                     </div>
                     <div class="card-footer border-top">
-                        {{ $orders->links() }}
+                        {{ $orders->links('vendor.pagination.custom') }}
                     </div>
                 </div>
             </div>
@@ -110,19 +105,22 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+
+    <!-- Add this delete confirmation modal at the end of your orders.blade.php file -->
+    <div class="modal fade" id="deleteOrderModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Confirm Delete</h5>
+                    <h5 class="modal-title">Delete Order</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    Are you sure you want to delete this order?
+                    <p>Are you sure you want to delete this order?</p>
+                    <p class="mb-0"><strong>Order ID:</strong> <span id="deleteOrderId"></span></p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <form id="deleteForm" method="POST" action="">
+                    <form id="deleteOrderForm" method="POST">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="btn btn-danger">Delete</button>
@@ -131,22 +129,67 @@
             </div>
         </div>
     </div>
-@endsection
 
-@push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Delete order confirmation
-            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-            const deleteForm = document.getElementById('deleteForm');
+    <style>
+        .pagination {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
 
-            document.querySelectorAll('.delete-order').forEach(button => {
-                button.addEventListener('click', function() {
-                    const orderId = this.dataset.id;
-                    deleteForm.action = `/orders/${orderId}`;
-                    deleteModal.show();
-                });
-            });
-        });
+        .page-item.active .btn-primary {
+            background-color: #556ee6;
+            border-color: #556ee6;
+            color: #fff;
+        }
+
+        .page-item .btn-light {
+            color: #6c757d;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+        }
+
+        .page-item.disabled .btn-light {
+            color: #6c757d;
+            background-color: #fff;
+            border-color: #dee2e6;
+            opacity: 0.65;
+            pointer-events: none;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border-radius: 0.2rem;
+        }
+    </style>
+    <!-- Bootstrap 5 Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous">
     </script>
-@endpush
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Delete order confirmation
+                const deleteModalElement = document.getElementById('deleteOrderModal');
+
+                if (deleteModalElement) {
+                    const deleteModal = new bootstrap.Modal(deleteModalElement);
+                    const deleteForm = document.getElementById('deleteOrderForm');
+
+                    // Function to show modal and set form action
+                    window.confirmDelete = function(orderId, orderNumber) {
+                        alert('Delete function called: ' + orderNumber);
+                        document.getElementById('deleteOrderId').textContent = orderNumber;
+                        deleteForm.action = `/orders/${orderId}`;
+                        deleteModal.show();
+                    };
+                    console.log('Bootstrap Modal instance:', deleteModal);
+                }
+            });
+        </script>
+    @endpush
+@endsection
