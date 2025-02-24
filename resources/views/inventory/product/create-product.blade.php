@@ -274,181 +274,96 @@
 
 
     <script>
+        // Update the form submit handler in your create-orders.blade.php
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize form elements
-            const form = document.getElementById('productForm');
-            const previewImage = document.getElementById('product-preview-image');
-            const previewName = document.getElementById('preview-name');
-            const previewOriginalPrice = document.getElementById('preview-original-price');
-            const previewFinalPrice = document.getElementById('preview-final-price');
-            const previewDiscount = document.getElementById('preview-discount');
-            const previewSizes = document.getElementById('preview-sizes');
+            const orderForm = document.getElementById('orderForm');
+            const successAlert = document.getElementById('success-alert');
+            const successMessage = document.getElementById('success-message');
 
-            // Initialize dropzone
-            let myDropzone = new Dropzone("#productImageUpload", {
-                url: "{{ route('products.store') }}",
-                autoProcessQueue: false,
-                uploadMultiple: false,
-                maxFiles: 1,
-                acceptedFiles: "image/*",
-                addRemoveLinks: true,
-                init: function() {
-                    this.on("addedfile", function(file) {
-                        // Preview the image
-                        if (file) {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                previewImage.src = e.target.result;
-                            };
-                            reader.readAsDataURL(file);
+            if (orderForm) {
+                orderForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+
+                    // Basic validation
+                    const products = document.querySelectorAll('.product-select');
+                    let hasSelectedProduct = false;
+
+                    products.forEach(select => {
+                        if (select.value) {
+                            hasSelectedProduct = true;
                         }
                     });
-                }
-            });
 
-            // Live preview updates
-            document.getElementById('product-name').addEventListener('input', function(e) {
-                const category = document.getElementById('product-categories').value;
-                previewName.innerHTML =
-                    `${e.target.value} <span class="fs-14 text-muted ms-1">(${category})</span>`;
-            });
-
-            document.getElementById('product-categories').addEventListener('change', function(e) {
-                const productName = document.getElementById('product-name').value;
-                const category = document.querySelector('#product-categories option:checked').text;
-                previewName.innerHTML =
-                    `${productName} <span class="fs-14 text-muted ms-1">(${category})</span>`;
-            });
-
-            // Price and discount calculations
-            function updatePricePreview() {
-                const price = parseFloat(document.getElementById('product-price').value) || 0;
-                const discount = parseFloat(document.getElementById('product-discount').value) || 0;
-
-                const discountedPrice = price * (1 - discount / 100);
-
-                previewOriginalPrice.textContent = `${price.toFixed(2)}`;
-                previewFinalPrice.textContent = `${discountedPrice.toFixed(2)}`;
-                previewDiscount.textContent = `(${discount}% Off)`;
-
-                // Hide original price if no discount
-                previewOriginalPrice.style.display = discount > 0 ? 'inline' : 'none';
-                previewDiscount.style.display = discount > 0 ? 'inline' : 'none';
-            }
-
-            document.getElementById('product-price').addEventListener('input', updatePricePreview);
-            document.getElementById('product-discount').addEventListener('input', updatePricePreview);
-
-            // Size preview
-            function updateSizePreview() {
-                previewSizes.innerHTML = '';
-                const checkedSizes = document.querySelectorAll('input[name="sizes[]"]:checked');
-                checkedSizes.forEach(size => {
-                    const sizeBtn = document.createElement('button');
-                    sizeBtn.type = 'button';
-                    sizeBtn.className = 'btn btn-sm btn-outline-dark';
-                    sizeBtn.textContent = size.value;
-                    previewSizes.appendChild(sizeBtn);
-                });
-            }
-
-            document.querySelectorAll('input[name="sizes[]"]').forEach(checkbox => {
-                checkbox.addEventListener('change', updateSizePreview);
-            });
-
-            // Form validation
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                // Basic validation
-                const requiredFields = form.querySelectorAll('[required]');
-                let isValid = true;
-
-                requiredFields.forEach(field => {
-                    if (!field.value) {
-                        isValid = false;
-                        field.classList.add('is-invalid');
-                    } else {
-                        field.classList.remove('is-invalid');
+                    if (!hasSelectedProduct) {
+                        alert('Please select at least one product.');
+                        return;
                     }
-                });
 
-                // Size validation
-                const checkedSizes = document.querySelectorAll('input[name="sizes[]"]:checked');
-                if (checkedSizes.length === 0) {
-                    isValid = false;
-                    document.querySelector('.size-error')?.remove();
-                    const sizeError = document.createElement('div');
-                    sizeError.className = 'text-danger mt-1 size-error';
-                    sizeError.textContent = 'Please select at least one size';
-                    document.querySelector('.size-section').appendChild(sizeError);
-                }
-
-                // Price validation
-                const price = parseFloat(document.getElementById('product-price').value);
-                if (price <= 0) {
-                    isValid = false;
-                    document.getElementById('product-price').classList.add('is-invalid');
-                }
-
-                // Image validation
-                if (myDropzone.files.length === 0) {
-                    isValid = false;
-                    document.querySelector('.dropzone').classList.add('border-danger');
-                }
-
-                if (isValid) {
                     // Show loading state
-                    const submitButton = form.querySelector('button[type="submit"]');
-                    const originalText = submitButton.innerHTML;
-                    submitButton.innerHTML =
-                        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...';
-                    submitButton.disabled = true;
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML =
+                        '<span class="spinner-border spinner-border-sm me-2"></span>Creating...';
 
-                    // Submit the form
-                    const formData = new FormData(form);
-                    if (myDropzone.files[0]) {
-                        formData.append('image', myDropzone.files[0]);
-                    }
+                    // Submit form
+                    const formData = new FormData(this);
 
-                    fetch(form.action, {
+                    fetch(this.action, {
                             method: 'POST',
                             body: formData,
                             headers: {
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')
+                                    .content
                             }
                         })
-                        .then(response => response.json())
+                        .then(response => {
+                            if (!response.ok) {
+                                throw response;
+                            }
+                            return response.json();
+                        })
                         .then(data => {
                             if (data.success) {
                                 // Show success message
-                                const successAlert = document.getElementById('success-alert');
-                                const successMessage = document.getElementById('success-message');
-                                successMessage.textContent = data.message;
-                                successAlert.style.display = 'block';
-                                successAlert.classList.add('show');
+                                if (successAlert && successMessage) {
+                                    successMessage.textContent = data.message;
+                                    successAlert.style.display = 'block';
+                                    successAlert.classList.add('show');
+                                }
 
-                                // Redirect after a short delay
+                                // Redirect after delay
                                 setTimeout(() => {
                                     window.location.href = data.redirect;
                                 }, 1500);
                             } else {
-                                throw new Error(data.message);
+                                throw new Error(data.message || 'An error occurred');
                             }
                         })
-                        .catch(error => {
-                            alert('Error: ' + error.message);
+                        .catch(async error => {
+                            let errorMessage = 'An error occurred while processing your request.';
+
+                            if (error instanceof Response) {
+                                try {
+                                    const errorData = await error.json();
+                                    errorMessage = errorData.message || errorMessage;
+                                } catch (e) {
+                                    console.error('Error parsing error response:', e);
+                                }
+                            } else if (error instanceof Error) {
+                                errorMessage = error.message;
+                            }
+
+                            alert('Error: ' + errorMessage);
+
                             // Reset button state
-                            submitButton.innerHTML = originalText;
-                            submitButton.disabled = false;
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = originalText;
                         });
-                }
-            });
-
-
-            // Initialize the preview
-            updatePricePreview();
-            updateSizePreview();
+                });
+            }
         });
     </script>
 
@@ -493,6 +408,41 @@
         }
 
         .fade.show {
+            opacity: 1;
+        }
+
+        /* Add to your existing styles */
+        .spinner-border {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 0.2em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border .75s linear infinite;
+        }
+
+        @keyframes spinner-border {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+
+        /* Alert styles */
+        .alert {
+            transition: opacity 0.15s linear;
+        }
+
+        .alert.fade {
+            opacity: 0;
+        }
+
+        .alert.fade.show {
             opacity: 1;
         }
     </style>

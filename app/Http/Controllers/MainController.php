@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Product;
 use App\Models\Category; 
+use App\Models\Order; 
+use App\Models\OrderItem; 
 
 class MainController extends Controller
 {
@@ -415,14 +417,7 @@ public function showInvoices(){
           'page_title' => 'Invoices', 
     ]);
 }
-public function CreateInvoices(){
-    return view('inventory.invoices.create-invoices ', [
-        'meta_title' => 'Create Invoices - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
-        'meta_image' => url('images/favicon.ico'),
-          'page_title' => 'Create Invoice', 
-    ]);
-}
+
 public function EditInvoices(){
     return view('inventory.invoices.edit-invoices ', [
         'meta_title' => 'Edit Invoices - Larkon',
@@ -442,14 +437,214 @@ public function invoicesDetails(){
 
 //orders
 
-public function showOrders(){
-    return view('inventory.orders.orders ', [
+public function showOrders()
+{
+    // Get orders with relationships, newest first
+    $orders = Order::with(['orderItems', 'createdBy'])
+        ->orderBy('created_at', 'desc')
+        ->paginate(10);
+
+    // Format orders for display
+    $orders->getCollection()->transform(function ($order) {
+        // Get total items count
+        $totalItems = $order->orderItems->sum('quantity');
+        
+        // Format amounts with Naira symbol
+        $formattedTotal = '₦' . number_format($order->total, 2);
+        
+        // Get status classes
+        $paymentStatusClass = $this->getPaymentStatusClass($order->payment_status);
+        $orderStatusClass = $this->getOrderStatusClass($order->order_status);
+        
+        // Add formatted data to order object
+        $order->formatted_total = $formattedTotal;
+        $order->total_items = $totalItems;
+        $order->payment_status_class = $paymentStatusClass;
+        $order->order_status_class = $orderStatusClass;
+        $order->formatted_date = $order->created_at->format('M d, Y');
+        
+        return $order;
+    });
+
+    return view('inventory.orders.orders', [
         'meta_title' => 'Orders - Larkon',
         'meta_desc' => 'A Management system that helps businesses keep track of their products...',
         'meta_image' => url('images/favicon.ico'),
-          'page_title' => 'Orders', 
+        'page_title' => 'Orders',
+        'orders' => $orders
     ]);
 }
+
+private function getPaymentStatusClass($status)
+{
+    return match ($status) {
+        'Paid' => 'bg-success text-light',
+        'Unpaid' => 'bg-light text-dark',
+        'Refund' => 'bg-light text-dark',
+        default => 'bg-light text-dark'
+    };
+}
+
+private function getOrderStatusClass($status)
+{
+    return match ($status) {
+        'Draft' => 'border border-secondary text-secondary',
+        'Packaging' => 'border border-warning text-warning',
+        'Shipping' => 'border border-info text-info',
+        'Completed' => 'border border-success text-success',
+        'Canceled' => 'border border-danger text-danger',
+        default => 'border border-secondary text-secondary'
+    };
+}
+// In MainController.php
+public function CreateOrders()
+{
+    try {
+        // Get all products for the dropdown
+        $products = Product::all();
+        
+        return view('inventory.orders.create-orders', [
+            'meta_title' => 'Create Order - Larkon',
+            'meta_desc' => 'Create a new order in the system',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Create Order',
+            'products' => $products
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error loading create order page: ' . $e->getMessage());
+        return redirect()->route('orders')
+            ->with('error', 'Failed to load create order page. Please try again.');
+    }
+}
+
+public function storeOrder(Request $request)
+{
+    try {
+        // Validate the request
+        $validated = $request->validate([
+            'priority' => 'required|in:Normal,High',
+            'payment_status' => 'required|in:Paid,Unpaid,Refund',
+            'order_status' => 'required|in:Draft,Packaging,Shipping,Completed,Canceled',
+            'customer_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:20',
+            'address' => 'required|string',
+            'products' => 'required|array|min:1',
+            'products.*' => 'exists:products,id',
+            'sizes' => 'required|array|min:1',
+            'sizes.*' => 'required|string',
+            'quantities' => 'required|array|min:1',
+            'quantities.*' => 'required|integer|min:1'
+        ]);
+
+        \DB::beginTransaction();
+
+        try {
+            // Calculate totals
+            $subtotal = 0;
+            foreach ($request->products as $index => $productId) {
+                $product = Product::findOrFail($productId);
+                $quantity = $request->quantities[$index];
+                $subtotal += $product->price * $quantity;
+            }
+
+            $tax = $subtotal * 0.075; // 7.5% tax
+            $total = $subtotal + $tax;
+
+            // Generate unique order ID
+            $orderId = '#' . date('ymd') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            while (Order::where('order_id', $orderId)->exists()) {
+                $orderId = '#' . date('ymd') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            }
+
+            // Create order
+            $order = Order::create([
+                'order_id' => $orderId,
+                'customer_name' => $request->customer_name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'priority' => $request->priority,
+                'payment_status' => $request->payment_status,
+                'order_status' => $request->order_status,
+                'subtotal' => $subtotal,
+                'tax' => $tax,
+                'total' => $total,
+                'created_by' => auth()->id()
+            ]);
+
+            // Create order items
+            foreach ($request->products as $index => $productId) {
+                $product = Product::findOrFail($productId);
+                
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $productId,
+                    'size' => $request->sizes[$index],
+                    'quantity' => $request->quantities[$index],
+                    'price' => $product->price,
+                    'total' => $product->price * $request->quantities[$index]
+                ]);
+
+                // Uncomment if you want to update product stock
+                // $product->decrement('stock', $request->quantities[$index]);
+            }
+
+            \DB::commit();
+
+            // Send order confirmation email
+            try {
+                // Mail::to($request->email)->send(new OrderConfirmation($order));
+            } catch (\Exception $e) {
+                \Log::error('Failed to send order confirmation email: ' . $e->getMessage());
+                // Don't throw the error since order was created successfully
+            }
+
+            // Return response based on request type
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Order created successfully! Order ID: ' . $order->order_id,
+                    'order' => $order,
+                    'redirect' => route('orders')
+                ]);
+            }
+
+            return redirect()->route('orders')
+                ->with('success', 'Order created successfully! Order ID: ' . $order->order_id);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            throw $e;
+        }
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        }
+        return back()->withErrors($e->errors())->withInput();
+
+    } catch (\Exception $e) {
+        \Log::error('Error creating order: ' . $e->getMessage());
+        
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create order. Please try again.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+
+        return back()
+            ->with('error', 'Failed to create order. Please try again.')
+            ->withInput();
+    }
+}
+
 
 public function showOrderDetails(){
     return view('inventory.orders.orders-details ', [

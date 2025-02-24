@@ -39,6 +39,8 @@
 
     <!-- Theme Config js (Require in all Page) -->
     <script src="{{ url('assets/js/config.js?v' . env('CACHE_VERSION')) }}"></script>
+    <!-- In your layout file -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 
 <body class="h-100">
@@ -209,6 +211,9 @@
 
                                 <li class="sub-nav-item">
                                     <a class="sub-nav-link" href="{{ url('/orders') }}">orders</a>
+                                </li>
+                                <li class="sub-nav-item">
+                                    <a class="sub-nav-link" href="{{ url('/create-order') }}">Create orders</a>
                                 </li>
 
                             </ul>

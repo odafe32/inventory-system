@@ -54,6 +54,10 @@ Route::middleware(['auth'])->group(function () {
             //orders
             Route::get('/orders', 'showOrders')->name('orders');
             Route::get('/orders-details', 'showOrderDetails')->name('orders-details');
+            Route::post('/orders', 'storeOrder')->name('orders.store');
+            Route::get('/create-order', 'CreateOrders')->name('orders');
+            Route::delete('/orders/{id}', 'deleteOrder')->name('orders.delete');
+            Route::get('/edit-order/{id}', 'editOrder')->name('edit-order');
              
             //profile
             Route::get('/profile', 'showProfile')->name('profile');

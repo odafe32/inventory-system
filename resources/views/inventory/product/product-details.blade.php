@@ -50,8 +50,8 @@
                                     <li><i class="bx bxs-star"></i></li>
                                 @endfor
                             </ul>
-                            <p class="mb-0 fw-medium fs-18 text-dark">4.5 <span class="text-muted fs-13">(55 Review)</span>
-                            </p>
+
+
                         </div>
 
                         <!-- Price -->
