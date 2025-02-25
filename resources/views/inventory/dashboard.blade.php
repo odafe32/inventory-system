@@ -2,13 +2,6 @@
 @section('content')
     {{-- //always add this and the to the top --}}
 
-
-
-
-
-    <!-- Add this to your dashboard layout, typically near the top of the content area -->
-    <!-- Place this after your header/navbar but before your main dashboard content -->
-
     <div class="container-fluid">
         <div class="row">
             <div class="col-12">
@@ -30,15 +23,12 @@
             </div>
         </div>
 
-
         <!-- Start Container Fluid -->
-
 
         <!-- Start here.... -->
         <div class="row">
             <div class="col-xxl-5">
                 <div class="row">
-
                     <div class="col-md-6">
                         <div class="card overflow-hidden">
                             <div class="card-body">
@@ -51,21 +41,26 @@
                                     </div> <!-- end col -->
                                     <div class="col-6 text-end">
                                         <p class="text-muted mb-0 text-truncate">Total Orders</p>
-                                        <h3 class="text-dark mt-1 mb-0">13, 647</h3>
+                                        <h3 class="text-dark mt-1 mb-0">{{ number_format($total_orders) }}</h3>
                                     </div> <!-- end col -->
                                 </div> <!-- end row-->
                             </div> <!-- end card body -->
                             <div class="card-footer py-2 bg-light bg-opacity-50">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div>
-                                        <span class="text-success"> <i class="bx bxs-up-arrow fs-12"></i> 2.3%</span>
-                                        <span class="text-muted ms-1 fs-12">Last Week</span>
+                                        <span class="{{ $revenue_growth >= 0 ? 'text-success' : 'text-danger' }}">
+                                            <i
+                                                class="bx {{ $revenue_growth >= 0 ? 'bxs-up-arrow' : 'bxs-down-arrow' }} fs-12"></i>
+                                            {{ number_format(abs($revenue_growth), 1) }}%
+                                        </span>
+                                        <span class="text-muted ms-1 fs-12">Last Month</span>
                                     </div>
-                                    <a href="#!" class="text-reset fw-semibold fs-12">View More</a>
+                                    <a href="{{ route('orders-list') }}" class="text-reset fw-semibold fs-12">View More</a>
                                 </div>
                             </div> <!-- end card body -->
                         </div> <!-- end card -->
                     </div> <!-- end col -->
+
                     <div class="col-md-6">
                         <div class="card overflow-hidden">
                             <div class="card-body">
@@ -76,48 +71,48 @@
                                         </div>
                                     </div> <!-- end col -->
                                     <div class="col-6 text-end">
-                                        <p class="text-muted mb-0 text-truncate">New Leads</p>
-                                        <h3 class="text-dark mt-1 mb-0">9, 526</h3>
+                                        <p class="text-muted mb-0 text-truncate">Total Products</p>
+                                        <h3 class="text-dark mt-1 mb-0">{{ number_format($total_products) }}</h3>
                                     </div> <!-- end col -->
                                 </div> <!-- end row-->
                             </div> <!-- end card body -->
                             <div class="card-footer py-2 bg-light bg-opacity-50">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div>
-                                        <span class="text-success"> <i class="bx bxs-up-arrow fs-12"></i> 8.1%</span>
-                                        <span class="text-muted ms-1 fs-12">Last Month</span>
+                                        <span class="text-muted ms-1 fs-12">Total Count</span>
                                     </div>
-                                    <a href="#!" class="text-reset fw-semibold fs-12">View More</a>
+                                    <a href="{{ route('product-list') }}" class="text-reset fw-semibold fs-12">View More</a>
                                 </div>
                             </div> <!-- end card body -->
                         </div> <!-- end card -->
                     </div> <!-- end col -->
+
                     <div class="col-md-6">
                         <div class="card overflow-hidden">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-6">
                                         <div class="avatar-md bg-soft-primary rounded">
-                                            <i class="bx bxs-backpack avatar-title fs-24 text-primary"></i>
+                                            <i class="bx bxs-category avatar-title fs-24 text-primary"></i>
                                         </div>
                                     </div> <!-- end col -->
                                     <div class="col-6 text-end">
-                                        <p class="text-muted mb-0 text-truncate">Deals</p>
-                                        <h3 class="text-dark mt-1 mb-0">976</h3>
+                                        <p class="text-muted mb-0 text-truncate">Categories</p>
+                                        <h3 class="text-dark mt-1 mb-0">{{ number_format($total_categories) }}</h3>
                                     </div> <!-- end col -->
                                 </div> <!-- end row-->
                             </div> <!-- end card body -->
                             <div class="card-footer py-2 bg-light bg-opacity-50">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div>
-                                        <span class="text-danger"> <i class="bx bxs-down-arrow fs-12"></i> 0.3%</span>
-                                        <span class="text-muted ms-1 fs-12">Last Month</span>
+                                        <span class="text-muted ms-1 fs-12">Total Count</span>
                                     </div>
-                                    <a href="#!" class="text-reset fw-semibold fs-12">View More</a>
+                                    <a href="{{ route('category') }}" class="text-reset fw-semibold fs-12">View More</a>
                                 </div>
                             </div> <!-- end card body -->
                         </div> <!-- end card -->
                     </div> <!-- end col -->
+
                     <div class="col-md-6">
                         <div class="card overflow-hidden">
                             <div class="card-body">
@@ -128,18 +123,22 @@
                                         </div>
                                     </div> <!-- end col -->
                                     <div class="col-6 text-end">
-                                        <p class="text-muted mb-0 text-truncate">Booked Revenue</p>
-                                        <h3 class="text-dark mt-1 mb-0">$123.6k</h3>
+                                        <p class="text-muted mb-0 text-truncate">Total Revenue</p>
+                                        <h3 class="text-dark mt-1 mb-0">₦{{ number_format($total_revenue, 2) }}</h3>
                                     </div> <!-- end col -->
                                 </div> <!-- end row-->
                             </div> <!-- end card body -->
                             <div class="card-footer py-2 bg-light bg-opacity-50">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div>
-                                        <span class="text-danger"> <i class="bx bxs-down-arrow fs-12"></i> 10.6%</span>
+                                        <span class="{{ $revenue_growth >= 0 ? 'text-success' : 'text-danger' }}">
+                                            <i
+                                                class="bx {{ $revenue_growth >= 0 ? 'bxs-up-arrow' : 'bxs-down-arrow' }} fs-12"></i>
+                                            {{ number_format(abs($revenue_growth), 1) }}%
+                                        </span>
                                         <span class="text-muted ms-1 fs-12">Last Month</span>
                                     </div>
-                                    <a href="#!" class="text-reset fw-semibold fs-12">View More</a>
+                                    <a href="{{ route('invoices') }}" class="text-reset fw-semibold fs-12">View More</a>
                                 </div>
                             </div> <!-- end card body -->
                         </div> <!-- end card -->
@@ -168,7 +167,6 @@
             </div> <!-- end col -->
         </div> <!-- end row -->
 
-
         <div class="row">
             <div class="col">
                 <div class="card">
@@ -178,8 +176,8 @@
                                 Recent Orders
                             </h4>
 
-                            <a href="#!" class="btn btn-sm btn-soft-primary">
-                                <i class="bx bx-plus me-1"></i>View Order
+                            <a href="{{ route('orders-list') }}" class="btn btn-sm btn-soft-primary">
+                                <i class="bx bx-plus me-1"></i>View Orders
                             </a>
                         </div>
                     </div>
@@ -189,14 +187,12 @@
                             <thead class="bg-light bg-opacity-50">
                                 <tr>
                                     <th class="ps-3">
-                                        Order ID.
+                                        Order ID
                                     </th>
                                     <th>
                                         Date
                                     </th>
-                                    <th>
-                                        Product
-                                    </th>
+
                                     <th>
                                         Customer Name
                                     </th>
@@ -219,115 +215,39 @@
                             </thead>
                             <!-- end thead-->
                             <tbody>
-                                <tr>
-                                    <td class="ps-3">
-                                        <a href="order-detail.html">#RB5625</a>
-                                    </td>
-                                    <td>29 April 2024</td>
-                                    <td>
-                                        <img src="assets/images/products/product-1(1).png" alt="product-1(1)"
-                                            class="img-fluid avatar-sm">
-                                    </td>
-                                    <td>
-                                        <a href="#!">Anna M. Hines</a>
-                                    </td>
-                                    <td>anna.hines@mail.com</td>
-                                    <td>(+1)-555-1564-261</td>
-                                    <td>Burr Ridge/Illinois</td>
-                                    <td>Credit Card</td>
-                                    <td>
-                                        <i class="bx bxs-circle text-success me-1"></i>Completed
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-3">
-                                        <a href="order-detail.html">#RB9652</a>
-                                    </td>
-                                    <td>25 April 2024</td>
-                                    <td>
-                                        <img src="assets/images/products/product-4.png" alt="product-4"
-                                            class="img-fluid avatar-sm">
-                                    </td>
-                                    <td>
-                                        <a href="#!">Judith H. Fritsche</a>
-                                    </td>
-                                    <td>judith.fritsche.com</td>
-                                    <td>(+57)-305-5579-759</td>
-                                    <td>SULLIVAN/Kentucky</td>
-                                    <td>Credit Card</td>
-                                    <td>
-                                        <i class="bx bxs-circle text-success me-1"></i>Completed
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-3">
-                                        <a href="order-detail.html">#RB5984</a>
-                                    </td>
-                                    <td>25 April 2024</td>
-                                    <td>
-                                        <img src="assets/images/products/product-5.png" alt="product-5"
-                                            class="img-fluid avatar-sm">
-                                    </td>
-                                    <td>
-                                        <a href="#!">Peter T. Smith</a>
-                                    </td>
-                                    <td>peter.smith@mail.com</td>
-                                    <td>(+33)-655-5187-93</td>
-                                    <td>Yreka/California</td>
-                                    <td>Pay Pal</td>
-                                    <td>
-                                        <i class="bx bxs-circle text-success me-1"></i>Completed
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-3">
-                                        <a href="order-detail.html">#RB3625</a>
-                                    </td>
-                                    <td>21 April 2024</td>
-                                    <td>
-                                        <img src="assets/images/products/product-6.png" alt="product-6"
-                                            class="img-fluid avatar-sm">
-                                    </td>
-                                    <td>
-                                        <a href="#!">Emmanuel J. Delcid</a>
-                                    </td>
-                                    <td>
-                                        emmanuel.delicid@mail.com
-                                    </td>
-                                    <td>(+30)-693-5553-637</td>
-                                    <td>Atlanta/Georgia</td>
-                                    <td>Pay Pal</td>
-                                    <td>
-                                        <i class="bx bxs-circle text-primary me-1"></i>Processing
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-3">
-                                        <a href="order-detail.html">#RB8652</a>
-                                    </td>
-                                    <td>18 April 2024</td>
-                                    <td>
-                                        <img src="assets/images/products/product-1(2).png" alt="product-1(2)"
-                                            class="img-fluid avatar-sm">
-                                    </td>
-                                    <td>
-                                        <a href="#!">William J. Cook</a>
-                                    </td>
-                                    <td>william.cook@mail.com</td>
-                                    <td>(+91)-855-5446-150</td>
-                                    <td>Rosenberg/Texas</td>
-                                    <td>Credit Card</td>
-                                    <td>
-                                        <i class="bx bxs-circle text-primary me-1"></i>Processing
-                                    </td>
-                                </tr>
+                                @forelse($recent_orders as $order)
+                                    <tr>
+                                        <td class="ps-3">
+                                            <a
+                                                href="{{ route('orders-details', $order->id) }}">{{ $order->order_id }}</a>
+                                        </td>
+                                        <td>{{ $order->formatted_date }}</td>
+
+                                        <td>
+                                            <a
+                                                href="{{ route('orders-details', $order->id) }}">{{ $order->customer_name }}</a>
+                                        </td>
+                                        <td>{{ $order->email }}</td>
+                                        <td>{{ $order->phone }}</td>
+                                        <td>{{ Str::limit($order->address, 20) }}</td>
+                                        <td>{{ $order->payment_type }}</td>
+                                        <td>
+                                            <i
+                                                class="bx bxs-circle {{ $order->order_status == 'Completed' ? 'text-success' : 'text-primary' }} me-1"></i>
+                                            {{ $order->order_status }}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="9" class="text-center">No recent orders found</td>
+                                    </tr>
+                                @endforelse
                             </tbody>
                             <!-- end tbody -->
                         </table>
                         <!-- end table -->
                     </div>
                     <!-- table responsive -->
-
                 </div>
                 <!-- end card -->
             </div>
@@ -337,17 +257,108 @@
     </div>
     <!-- End Container Fluid -->
 
-    <script>
-        // Auto-dismiss alerts after 5 seconds
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(function() {
-                const alerts = document.querySelectorAll('.alert');
-                alerts.forEach(alert => {
-                    // Using Bootstrap's alert dismiss functionality
-                    const closeBtn = new bootstrap.Alert(alert);
-                    closeBtn.close();
-                });
-            }, 5000);
-        });
-    </script>
+    @push('scripts')
+        <script>
+            // Auto-dismiss alerts after 5 seconds
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(function() {
+                    const alerts = document.querySelectorAll('.alert');
+                    alerts.forEach(alert => {
+                        // Using Bootstrap's alert dismiss functionality
+                        const closeBtn = new bootstrap.Alert(alert);
+                        closeBtn.close();
+                    });
+                }, 5000);
+
+                // Performance chart
+                var options = {
+                    chart: {
+                        height: 350,
+                        type: 'area',
+                        toolbar: {
+                            show: false
+                        }
+                    },
+                    dataLabels: {
+                        enabled: false
+                    },
+                    stroke: {
+                        curve: 'smooth',
+                        width: 2
+                    },
+                    series: [{
+                        name: 'Orders',
+                        data: [
+                            @foreach ($orders_by_month as $month => $count)
+                                {{ $count }},
+                            @endforeach
+                        ]
+                    }, {
+                        name: 'Revenue (₦)',
+                        data: [
+                            @foreach ($revenue_by_month as $month => $amount)
+                                {{ $amount }},
+                            @endforeach
+                        ]
+                    }],
+                    xaxis: {
+                        categories: [
+                            @foreach ($orders_by_month as $month => $count)
+                                "{{ $month }}",
+                            @endforeach
+                        ],
+                        axisBorder: {
+                            show: false
+                        },
+                        axisTicks: {
+                            show: false
+                        }
+                    },
+                    yaxis: {
+                        tickAmount: 4,
+                        floating: false,
+                        labels: {
+                            formatter: function(val) {
+                                return val.toFixed(0);
+                            }
+                        },
+                        axisBorder: {
+                            show: false
+                        },
+                        axisTicks: {
+                            show: false
+                        }
+                    },
+                    fill: {
+                        opacity: 0.5,
+                        type: 'gradient',
+                        gradient: {
+                            shadeIntensity: 0.5,
+                            opacityFrom: 0.8,
+                            opacityTo: 0.4,
+                        }
+                    },
+                    colors: ['#3b82f6', '#10b981'],
+                    grid: {
+                        yaxis: {
+                            lines: {
+                                offsetX: -30
+                            }
+                        },
+                        padding: {
+                            left: 20
+                        }
+                    },
+                    tooltip: {
+                        x: {
+                            format: 'MMM yyyy'
+                        },
+                    }
+                };
+
+                var chart = new ApexCharts(document.querySelector("#dash-performance-chart"), options);
+                chart.render();
+            });
+        </script>
+    @endpush
 @endsection

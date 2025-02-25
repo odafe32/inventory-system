@@ -9,7 +9,11 @@ use App\Models\Product;
 use App\Models\Category; 
 use App\Models\Order; 
 use App\Models\OrderItem; 
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class MainController extends Controller
 {
@@ -20,11 +24,91 @@ class MainController extends Controller
 }
     //
 public function showDashboard(){
+    // Get count of total orders
+    $totalOrders = Order::count();
+    
+    // Get total revenue (sum of all order totals)
+    $totalRevenue = Order::sum('total');
+    
+    // Calculate revenue growth compared to previous month
+    $currentMonth = now()->month;
+    $previousMonth = now()->subMonth()->month;
+    
+    $currentMonthRevenue = Order::whereMonth('created_at', $currentMonth)->sum('total');
+    $previousMonthRevenue = Order::whereMonth('created_at', $previousMonth)->sum('total');
+    
+    $revenueGrowth = 0;
+    if ($previousMonthRevenue > 0) {
+        $revenueGrowth = (($currentMonthRevenue - $previousMonthRevenue) / $previousMonthRevenue) * 100;
+    }
+    
+    // Get count of total products
+    $totalProducts = Product::count();
+    
+    // Get count of total categories
+    $totalCategories = Category::count();
+    
+    // Get recent orders
+    $recentOrders = Order::with(['orderItems.product', 'createdBy'])
+        ->orderBy('created_at', 'desc')
+        ->limit(5)
+        ->get();
+    
+    // Format recent orders data
+    $recentOrders->transform(function ($order) {
+        // Get product image for the first item (if exists)
+        $productImage = null;
+        if ($order->orderItems->isNotEmpty() && $order->orderItems[0]->product) {
+            $productImage = $order->orderItems[0]->product->image;
+        }
+        
+        // Format order data
+        $order->formatted_date = $order->created_at->format('d F Y');
+        $order->formatted_total = '₦' . number_format($order->total, 2);
+        $order->product_image = $productImage;
+        $order->status_class = $this->getOrderStatusClass($order->order_status);
+        $order->payment_type = $order->payment_status === 'Paid' ? 'Credit Card' : 'Pending';
+        
+        return $order;
+    });
+    
+    // Get monthly order counts for the performance chart (last 12 months)
+    $ordersByMonth = [];
+    $revenueByMonth = [];
+    
+    for ($i = 0; $i < 12; $i++) {
+        $date = now()->subMonths($i);
+        $monthYear = $date->format('M Y');
+        
+        $monthlyOrders = Order::whereMonth('created_at', $date->month)
+            ->whereYear('created_at', $date->year)
+            ->count();
+            
+        $monthlyRevenue = Order::whereMonth('created_at', $date->month)
+            ->whereYear('created_at', $date->year)
+            ->sum('total');
+            
+        $ordersByMonth[$monthYear] = $monthlyOrders;
+        $revenueByMonth[$monthYear] = $monthlyRevenue;
+    }
+    
+    // Reverse arrays to show in chronological order
+    $ordersByMonth = array_reverse($ordersByMonth);
+    $revenueByMonth = array_reverse($revenueByMonth);
+    
     return view('inventory.dashboard', [
-        'meta_title' => 'Dashboard - Larkon | inventory management Services',
+        'meta_title' => 'Dashboard - Larkon | Inventory Management Services',
         'meta_desc' => 'A Management system that helps businesses keep track of their products...',
         'meta_image' => url('images/favicon.ico'),
         'page_title' => 'Dashboard',
+        'total_orders' => $totalOrders,
+        'total_revenue' => $totalRevenue,
+        'revenue_growth' => $revenueGrowth,
+        'total_products' => $totalProducts,
+        'total_categories' => $totalCategories,
+        'recent_orders' => $recentOrders,
+        'orders_by_month' => $ordersByMonth,
+        'revenue_by_month' => $revenueByMonth,
     ]);
 }
 
@@ -415,31 +499,385 @@ public function storeCategory(Request $request)
 
 
 //invoicesz
-public function showInvoices(){
-    return view('inventory.invoices.invoices ', [
-        'meta_title' => 'Invoices - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
+// Add these methods to your MainController
+
+public function showInvoices()
+{
+    try {
+        // Get invoices with their creators, sorted by newest first
+        $invoices = Invoice::with('creator')
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+            
+        return view('inventory.invoices.invoices', [
+            'meta_title' => 'Invoices - Larkon',
+            'meta_desc' => 'Manage your invoices',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Invoices',
+            'invoices' => $invoices
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error fetching invoices: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Error loading invoices. Please try again.');
+    }
+}
+
+public function CreateInvoices()
+{
+    // Generate a new invoice number
+    $invoiceNumber = Invoice::generateInvoiceNumber();
+    
+    // Get current user
+    $user = Auth::user();
+    
+    return view('inventory.invoices.create-invoices', [
+        'meta_title' => 'Create Invoice - Larkon',
+        'meta_desc' => 'Create a new invoice',
         'meta_image' => url('images/favicon.ico'),
-          'page_title' => 'Invoices', 
+        'page_title' => 'Create Invoice',
+        'invoice_number' => $invoiceNumber,
+        'user' => $user
     ]);
 }
 
-public function EditInvoices(){
-    return view('inventory.invoices.edit-invoices ', [
-        'meta_title' => 'Edit Invoices - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
-        'meta_image' => url('images/favicon.ico'),
-          'page_title' => 'Edit Invoice', 
-    ]);
+public function storeInvoice(Request $request)
+{
+    try {
+        // Validate the request
+        $validated = $request->validate([
+            'sender_name' => 'required|string|max:255',
+            'sender_address' => 'required|string',
+            'sender_phone' => 'required|string|max:20',
+            'invoice_number' => 'required|string|unique:invoices,invoice_number',
+            'issue_date' => 'required|date',
+            'due_date' => 'required|date|after_or_equal:issue_date',
+            'amount' => 'required|numeric|min:0',
+            'status' => 'required|in:Paid,Pending,Cancel',
+            'issue_from' => 'required|string|max:255',
+            'issue_from_address' => 'required|string',
+            'issue_from_phone' => 'required|string|max:20',
+            'issue_from_email' => 'required|email|max:255',
+            'issue_for' => 'required|string|max:255',
+            'issue_for_address' => 'required|string',
+            'issue_for_phone' => 'required|string|max:20',
+            'issue_for_email' => 'required|email|max:255',
+            'products' => 'required|array|min:1',
+            'products.*.name' => 'required|string|max:255',
+            'products.*.size' => 'nullable|string|max:255',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.price' => 'required|numeric|min:0',
+            'products.*.tax' => 'nullable|numeric|min:0',
+            'products.*.total' => 'required|numeric|min:0',
+            'subtotal' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0',
+            'grand_total' => 'required|numeric|min:0',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        \DB::beginTransaction();
+
+        try {
+            // Handle logo upload if provided
+            if ($request->hasFile('logo')) {
+                $logoPath = $request->file('logo')->store('invoices/logos', 'public');
+                $validated['logo'] = $logoPath;
+            }
+
+            // Create invoice
+            $invoice = Invoice::create([
+                'invoice_number' => $request->invoice_number,
+                'created_by' => auth()->id(),
+                'sender_name' => $request->sender_name,
+                'sender_address' => $request->sender_address,
+                'sender_phone' => $request->sender_phone,
+                'issue_from' => $request->issue_from,
+                'issue_from_address' => $request->issue_from_address,
+                'issue_from_phone' => $request->issue_from_phone,
+                'issue_from_email' => $request->issue_from_email,
+                'issue_for' => $request->issue_for,
+                'issue_for_address' => $request->issue_for_address,
+                'issue_for_phone' => $request->issue_for_phone,
+                'issue_for_email' => $request->issue_for_email,
+                'issue_date' => $request->issue_date,
+                'due_date' => $request->due_date,
+                'amount' => $request->amount,
+                'status' => $request->status,
+                'subtotal' => $request->subtotal,
+                'discount' => $request->discount ?? 0,
+                'tax' => $request->tax ?? 0,
+                'grand_total' => $request->grand_total,
+                'logo' => $logoPath ?? null,
+            ]);
+
+            // Create invoice items
+            foreach ($request->products as $product) {
+                // Handle product image if provided
+                $productImagePath = null;
+                if (isset($product['image']) && $product['image']) {
+                    $productImagePath = $product['image']->store('invoices/products', 'public');
+                }
+
+                InvoiceItem::create([
+                    'invoice_id' => $invoice->id,
+                    'product_name' => $product['name'],
+                    'product_size' => $product['size'] ?? null,
+                    'quantity' => $product['quantity'],
+                    'price' => $product['price'],
+                    'tax' => $product['tax'] ?? 0,
+                    'total' => $product['total'],
+                    'product_image' => $productImagePath,
+                ]);
+            }
+
+            \DB::commit();
+
+            // Return response based on request type
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Invoice created successfully!',
+                    'redirect' => route('invoices-details', $invoice->id)
+                ]);
+            }
+
+            return redirect()->route('invoices-details', $invoice->id)
+                ->with('success', 'Invoice created successfully!');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            throw $e;
+        }
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        }
+        
+        return redirect()->back()->withErrors($e->errors())->withInput();
+        
+    } catch (\Exception $e) {
+        \Log::error('Error creating invoice: ' . $e->getMessage());
+        
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create invoice. ' . $e->getMessage()
+            ], 500);
+        }
+        
+        return redirect()->back()
+            ->with('error', 'Failed to create invoice. Please try again.')
+            ->withInput();
+    }
 }
-public function invoicesDetails(){
-    return view('inventory.invoices.invoices-details ', [
-        'meta_title' => ' Invoices - Larkon',
-        'meta_desc' => 'A Management system that helps businesses keep track of their products...',
-        'meta_image' => url('images/favicon.ico'),
-          'page_title' => 'Invoice Detail', 
-    ]);
+
+public function invoicesDetails($id)
+{
+    try {
+        $invoice = Invoice::with(['items', 'creator'])->findOrFail($id);
+        
+        return view('inventory.invoices.invoices-details', [
+            'meta_title' => 'Invoice Details - Larkon',
+            'meta_desc' => 'View invoice details',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Invoice Detail',
+            'invoice' => $invoice
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error fetching invoice details: ' . $e->getMessage());
+        return redirect()->route('invoices')
+            ->with('error', 'Invoice not found.');
+    }
 }
+
+public function EditInvoices($id)
+{
+    try {
+        $invoice = Invoice::with(['items', 'creator'])->findOrFail($id);
+        
+        return view('inventory.invoices.edit-invoices', [
+            'meta_title' => 'Edit Invoice - Larkon',
+            'meta_desc' => 'Edit invoice details',
+            'meta_image' => url('images/favicon.ico'),
+            'page_title' => 'Edit Invoice',
+            'invoice' => $invoice
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error loading invoice for edit: ' . $e->getMessage());
+        return redirect()->route('invoices')
+            ->with('error', 'Invoice not found.');
+    }
+}
+
+public function deleteInvoice($id)
+{
+    try {
+        $invoice = Invoice::findOrFail($id);
+        
+        // Delete logo if exists
+        if ($invoice->logo && Storage::disk('public')->exists($invoice->logo)) {
+            Storage::disk('public')->delete($invoice->logo);
+        }
+        
+        // Delete product images if exist
+        foreach ($invoice->items as $item) {
+            if ($item->product_image && Storage::disk('public')->exists($item->product_image)) {
+                Storage::disk('public')->delete($item->product_image);
+            }
+        }
+        
+        // Delete invoice and its items (cascade deletion will handle the items)
+        $invoice->delete();
+        
+        return redirect()->route('invoices')
+            ->with('success', 'Invoice deleted successfully!');
+    } catch (\Exception $e) {
+        \Log::error('Error deleting invoice: ' . $e->getMessage());
+        
+        return redirect()->back()
+            ->with('error', 'Failed to delete invoice. Please try again.');
+    }
+}
+
+public function updateInvoice(Request $request, $id)
+{
+    try {
+        // Find the invoice
+        $invoice = Invoice::with('items')->findOrFail($id);
+        
+        // Validate the request
+        $validated = $request->validate([
+            'sender_name' => 'required|string|max:255',
+            'sender_address' => 'required|string',
+            'sender_phone' => 'required|string|max:20',
+            'issue_date' => 'required|date',
+            'due_date' => 'required|date|after_or_equal:issue_date',
+            'amount' => 'required|numeric|min:0',
+            'status' => 'required|in:Paid,Pending,Cancel',
+            'issue_from' => 'required|string|max:255',
+            'issue_from_address' => 'required|string',
+            'issue_from_phone' => 'required|string|max:20',
+            'issue_from_email' => 'required|email|max:255',
+            'issue_for' => 'required|string|max:255',
+            'issue_for_address' => 'required|string',
+            'issue_for_phone' => 'required|string|max:20',
+            'issue_for_email' => 'required|email|max:255',
+            'products' => 'required|array|min:1',
+            'products.*.name' => 'required|string|max:255',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.price' => 'required|numeric|min:0',
+            'products.*.tax' => 'nullable|numeric|min:0',
+            'products.*.total' => 'required|numeric|min:0',
+            'subtotal' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0',
+            'grand_total' => 'required|numeric|min:0',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        \DB::beginTransaction();
+
+        try {
+            // Handle logo upload if provided
+            if ($request->hasFile('logo')) {
+                // Delete old logo if exists
+                if ($invoice->logo && Storage::disk('public')->exists($invoice->logo)) {
+                    Storage::disk('public')->delete($invoice->logo);
+                }
+                
+                $logoPath = $request->file('logo')->store('invoices/logos', 'public');
+                $validated['logo'] = $logoPath;
+            }
+
+            // Update invoice
+            $invoice->update([
+                'sender_name' => $request->sender_name,
+                'sender_address' => $request->sender_address,
+                'sender_phone' => $request->sender_phone,
+                'issue_from' => $request->issue_from,
+                'issue_from_address' => $request->issue_from_address,
+                'issue_from_phone' => $request->issue_from_phone,
+                'issue_from_email' => $request->issue_from_email,
+                'issue_for' => $request->issue_for,
+                'issue_for_address' => $request->issue_for_address,
+                'issue_for_phone' => $request->issue_for_phone,
+                'issue_for_email' => $request->issue_for_email,
+                'issue_date' => $request->issue_date,
+                'due_date' => $request->due_date,
+                'amount' => $request->amount,
+                'status' => $request->status,
+                'subtotal' => $request->subtotal,
+                'discount' => $request->discount ?? 0,
+                'tax' => $request->tax ?? 0,
+                'grand_total' => $request->grand_total,
+                'logo' => isset($logoPath) ? $logoPath : $invoice->logo,
+            ]);
+
+            // Get IDs of current items to track what should be deleted
+            $existingItemIds = $invoice->items->pluck('id')->toArray();
+            $updatedItemIds = [];
+            
+            // Update or create invoice items
+            foreach ($request->products as $product) {
+                if (isset($product['id'])) {
+                    // Update existing item
+                    $item = InvoiceItem::find($product['id']);
+                    if ($item) {
+                        $item->update([
+                            'product_name' => $product['name'],
+                            'product_size' => $product['size'] ?? null,
+                            'quantity' => $product['quantity'],
+                            'price' => $product['price'],
+                            'tax' => $product['tax'] ?? 0,
+                            'total' => $product['total'],
+                        ]);
+                        $updatedItemIds[] = $item->id;
+                    }
+                } else {
+                    // Create new item
+                    $newItem = InvoiceItem::create([
+                        'invoice_id' => $invoice->id,
+                        'product_name' => $product['name'],
+                        'product_size' => $product['size'] ?? null,
+                        'quantity' => $product['quantity'],
+                        'price' => $product['price'],
+                        'tax' => $product['tax'] ?? 0,
+                        'total' => $product['total'],
+                    ]);
+                    $updatedItemIds[] = $newItem->id;
+                }
+            }
+            
+            // Delete items that weren't updated or are no longer needed
+            $itemsToDelete = array_diff($existingItemIds, $updatedItemIds);
+            if (!empty($itemsToDelete)) {
+                InvoiceItem::whereIn('id', $itemsToDelete)->delete();
+            }
+
+            \DB::commit();
+
+            return redirect()->route('invoices-details', $invoice->id)
+                ->with('success', 'Invoice updated successfully!');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            throw $e;
+        }
+
+    } catch (\Exception $e) {
+        \Log::error('Error updating invoice: ' . $e->getMessage());
+        
+        return redirect()->back()
+            ->with('error', 'Failed to update invoice: ' . $e->getMessage())
+            ->withInput();
+    }
+}
+
 
 //orders
 

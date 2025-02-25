@@ -93,5 +93,12 @@ class DatabaseSeeder extends Seeder
         foreach ($categories as $category) {
             Category::create($category);
         }
+        
+        // Call the Product Seeder
+        $this->call([
+            ProductSeeder::class,
+              
+            
+        ]);
     }
 }

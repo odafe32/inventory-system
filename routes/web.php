@@ -46,10 +46,14 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/categories/{id}', 'updateCategory')->name('categories.update');
 
             //invoices
+            // Update the invoices routes
             Route::get('/invoices', 'showInvoices')->name('invoices');
             Route::get('/create-invoices', 'CreateInvoices')->name('create-invoices');
-            Route::get('/edit-invoices', 'EditInvoices')->name('edit-invoices');
-            Route::get('/invoices-details', 'invoicesDetails')->name('invoices-details');
+            Route::post('/invoices', 'storeInvoice')->name('invoices.store');
+            Route::get('/invoices-details/{id}', 'invoicesDetails')->name('invoices-details');
+            Route::get('/edit-invoices/{id}', 'EditInvoices')->name('edit-invoices');
+            Route::delete('/invoices/{id}', 'deleteInvoice')->name('invoices.delete');      
+            Route::put('/invoices/{id}', 'updateInvoice')->name('invoices.update');
         
            //orders
             Route::get('/orders',  'showOrders')->name('orders-list');

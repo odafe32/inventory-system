@@ -95,7 +95,12 @@
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">
                                 <!-- item-->
-                                <h6 class="dropdown-header">Welcome Gaston!</h6>
+                                @if (Auth::user()->first_name)
+                                    <h6 class="dropdown-header">Welcome {{ Auth::user()->first_name }}!</h6>
+                                @else
+                                    <h6 class="dropdown-header">Welcome </h6>
+                                @endif
+
                                 <a class="dropdown-item" href="{{ url('/profile') }}">
                                     <i class="bx bx-user-circle text-muted fs-18 align-middle me-1"></i><span
                                         class="align-middle">Profile</span>

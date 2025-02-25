@@ -34,8 +34,7 @@
                                     alt="{{ Auth::user()->business_name }}"
                                     class="avatar-xl border border-light border-3 rounded-circle position-absolute top-100 start-0 translate-middle ms-5">
                             @else
-                                <img src="{{ asset('assets/images/users/avatar-1.jpg') }}"
-                                    alt="{{ Auth::user()->business_name }}"
+                                <img src="{{ asset('images.png') }}" alt="{{ Auth::user()->business_name }}"
                                     class="avatar-xl border border-light border-3 rounded-circle position-absolute top-100 start-0 translate-middle ms-5">
                             @endif
                         </div>
